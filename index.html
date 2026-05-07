@@ -26,7 +26,7 @@
 <body>
   <main class="card">
     <h1>Paytm CSV Cleaner</h1>
-    <p>Choose your Paytm CSV. This page keeps only the final required columns, sorts by <code>Transaction_Date</code>, converts the time to 12-hour AM/PM format, and downloads a cleaned CSV.</p>
+    <p>Choose your Paytm CSV. This page keeps only the final required columns, groups by <code>POS_ID</code> in this order: <code>PUMP-01</code>, <code>PUMP-02</code>, then others/blank; sorts by <code>Transaction_Date</code> inside each group; converts the time to 12-hour AM/PM format; and downloads a cleaned CSV.</p>
 
     <div class="drop">
       <input id="fileInput" type="file" accept=".csv,text/csv" />
@@ -35,7 +35,7 @@
 
     <div class="row">
       <button id="cleanButton" disabled>Clean & Download CSV</button>
-      <label class="small"><input id="latestFirst" type="checkbox" /> Latest transaction first</label>
+      <label class="small"><input id="latestFirst" type="checkbox" /> Latest transaction first inside each POS group</label>
     </div>
 
     <div id="status" class="status">Select a Paytm CSV to start.</div>
@@ -96,10 +96,16 @@
       const dataRows = rows.slice(1).filter(row => row.some(cell => String(cell || "").trim() !== ""));
 
       const txDateIndex = headerIndex.get("Transaction_Date");
+      const posIdIndex = headerIndex.has("POS_ID") ? headerIndex.get("POS_ID") : -1;
       const cleanedObjects = dataRows.map(row => {
         const rawDate = cleanText(row[txDateIndex] || "");
         const parsedDate = parsePaytmDate(rawDate);
-        const obj = { _sortDate: parsedDate || new Date(0) };
+        const posIdRaw = posIdIndex >= 0 ? cleanText(row[posIdIndex] || "") : "";
+        const obj = {
+          _sortDate: parsedDate || new Date(0),
+          _posRank: getPosRank(posIdRaw),
+          _posId: posIdRaw
+        };
         availableOutputColumns.forEach(col => {
           const val = cleanText(row[headerIndex.get(col)] || "");
           obj[col] = col === "Transaction_Date" ? formatDate12Hour(parsedDate, rawDate) : val;
@@ -107,7 +113,12 @@
         return obj;
       });
 
-      cleanedObjects.sort((a, b) => latestFirst.checked ? b._sortDate - a._sortDate : a._sortDate - b._sortDate);
+      cleanedObjects.sort((a, b) => {
+        if (a._posRank !== b._posRank) return a._posRank - b._posRank;
+        const dateCompare = latestFirst.checked ? b._sortDate - a._sortDate : a._sortDate - b._sortDate;
+        if (dateCompare !== 0) return dateCompare;
+        return String(a._posId || "").localeCompare(String(b._posId || ""));
+      });
 
       const output = [availableOutputColumns];
       cleanedObjects.forEach(obj => output.push(availableOutputColumns.map(col => obj[col] || "")));
@@ -115,11 +126,21 @@
 
       const outputName = makeOutputName(selectedFile.name);
       downloadTextFile(csv, outputName, "text/csv;charset=utf-8");
-      setStatus(`Done. Downloaded: ${outputName}\nRows processed: ${cleanedObjects.length}\nColumns kept: ${availableOutputColumns.join(", ")}`, "success");
+      const pump01Count = cleanedObjects.filter(x => x._posRank === 1).length;
+      const pump02Count = cleanedObjects.filter(x => x._posRank === 2).length;
+      const otherCount = cleanedObjects.filter(x => x._posRank === 3).length;
+      setStatus(`Done. Downloaded: ${outputName}\nRows processed: ${cleanedObjects.length}\nPUMP-01: ${pump01Count} rows\nPUMP-02: ${pump02Count} rows\nOther/blank POS_ID: ${otherCount} rows\nColumns kept: ${availableOutputColumns.join(", ")}`, "success");
     } catch (err) {
       setStatus(`Error: ${err.message}`, "error");
     }
   });
+
+  function getPosRank(value) {
+    const s = cleanText(value).toUpperCase();
+    if (s === "PUMP-01") return 1;
+    if (s === "PUMP-02") return 2;
+    return 3;
+  }
 
   function setStatus(message, type) {
     statusBox.textContent = message;
