@@ -43,7 +43,7 @@
     <details>
       <summary>Output columns</summary>
       <p class="small">The output will include these columns if present in the input:</p>
-      <p class="small"><code>Transaction_Date</code>, <code>Order_ID</code>, <code>Transaction_ID</code>, <code>Status</code>, <code>Amount</code>, <code>Settled_Amount</code>, <code>Payment_Mode</code>, <code>Bank_Transaction_ID</code>, <code>Merchant_Name</code>, <code>POS_ID</code>, <code>Customer_VPA</code></p>
+      <p class="small"><code>Transaction_Date</code>, <code>POS_ID</code>, <code>Order_ID</code>, <code>Transaction_ID</code>, <code>Status</code>, <code>Amount</code>, <code>Settled_Amount</code>, <code>Payment_Mode</code>, <code>Bank_Transaction_ID</code>, <code>Merchant_Name</code>, <code>Customer_VPA</code></p>
     </details>
   </main>
 
@@ -51,6 +51,7 @@
 (function () {
   const outputColumns = [
     "Transaction_Date",
+    "POS_ID",
     "Order_ID",
     "Transaction_ID",
     "Status",
@@ -59,7 +60,6 @@
     "Payment_Mode",
     "Bank_Transaction_ID",
     "Merchant_Name",
-    "POS_ID",
     "Customer_VPA"
   ];
 
